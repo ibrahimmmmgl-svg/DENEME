@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YTGrab — YouTube İndirici</title>
+  <meta name="description" content="YouTube videolarını MP4 veya MP3 olarak ücretsiz indirin. Hızlı, güvenli, reklamsız." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ===================== RESET & TOKENS ===================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #05050c;
+      --surface:     rgba(255, 255, 255, 0.04);
+      --border:      rgba(255, 255, 255, 0.08);
+      --text:        #e2e8f0;
+      --muted:       #64748b;
+      --accent-g:    #00e5a0;
+      --accent-r:    #ff3b6b;
+      --accent-b:    #3b82f6;
+      --glow-g:      rgba(0, 229, 160, 0.25);
+      --glow-r:      rgba(255, 59, 107, 0.25);
+      --radius:      16px;
+      --font-display:'Syne', sans-serif;
+      --font-mono:   'JetBrains Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-display);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 20px 60px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ===================== BACKGROUND GRID ===================== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -30%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(ellipse at center,
+        rgba(0, 229, 160, 0.07) 0%,
+        rgba(59, 130, 246, 0.05) 40%,
+        transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===================== HEADER ===================== */
+    header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 72px 0 48px;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 8px 18px;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent-g);
+      font-family: var(--font-mono);
+      margin-bottom: 28px;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .logo-badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-g);
+      box-shadow: 0 0 8px var(--accent-g);
+      animation: pulse 2s infinite;
+    }
+
+    h1 {
+      font-size: clamp(2.8rem, 7vw, 5rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      animation: fadeDown 0.6s 0.1s ease both;
+    }
+
+    h1 span.yt { color: var(--accent-r); }
+    h1 span.grab { color: var(--accent-g); }
+
+    .tagline {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 1.05rem;
+      font-weight: 400;
+      animation: fadeDown 0.6s 0.2s ease both;
+    }
+
+    /* ===================== MAIN CARD ===================== */
+    .card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 720px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px;
+      backdrop-filter: blur(20px);
+      animation: fadeUp 0.7s 0.3s ease both;
+    }
+
+    /* ===================== URL INPUT ===================== */
+    .input-wrap {
+      display: flex;
+      gap: 12px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 6px 6px 20px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .input-wrap:focus-within {
+      border-color: var(--accent-g);
+      box-shadow: 0 0 0 3px var(--glow-g);
+    }
+
+    #url-input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    #url-input::placeholder { color: var(--muted); }
+
+    #fetch-btn {
+      background: var(--accent-g);
+      color: #000;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 24px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.3s, background 0.2s;
+      white-space: nowrap;
+    }
+
+    #fetch-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--glow-g);
+    }
+
+    #fetch-btn:active { transform: translateY(0); }
+
+    #fetch-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ===================== ERROR ===================== */
+    .error-msg {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 16px;
+      background: rgba(255,59,107,0.1);
+      border: 1px solid rgba(255,59,107,0.3);
+      border-radius: 10px;
+      color: var(--accent-r);
+      font-size: 0.875rem;
+      font-family: var(--font-mono);
+    }
+
+    .error-msg.show { display: block; animation: shake 0.4s ease; }
+
+    /* ===================== VIDEO CARD ===================== */
+    #video-card {
+      display: none;
+      margin-top: 28px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    #video-card.show {
+      display: block;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .video-meta {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    #thumb {
+      width: 120px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+      background: #111;
+    }
+
+    .video-info { flex: 1; min-width: 0; }
+
+    #video-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .video-stats {
+      display: flex;
+      gap: 14px;
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .video-stats span::before { content: '▸ '; }
+
+    /* ===================== FORMAT SELECTOR ===================== */
+    .format-row {
+      display: flex;
+      gap: 10px;
+      padding: 0 16px 16px;
+    }
+
+    .fmt-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 16px 12px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .fmt-btn .icon { font-size: 1.6rem; }
+    .fmt-btn .label { letter-spacing: 0.05em; }
+    .fmt-btn .sub { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
+
+    .fmt-btn.video:hover,
+    .fmt-btn.video.active {
+      border-color: var(--accent-b);
+      background: rgba(59,130,246,0.1);
+      box-shadow: 0 0 20px rgba(59,130,246,0.2);
+      color: #93c5fd;
+    }
+
+    .fmt-btn.audio:hover,
+    .fmt-btn.audio.active {
+      border-color: var(--accent-g);
+      background: rgba(0,229,160,0.1);
+      box-shadow: 0 0 20px var(--glow-g);
+      color: var(--accent-g);
+    }
+
+    /* ===================== QUALITY SELECTOR ===================== */
+    #quality-wrap {
+      display: none;
+      padding: 0 16px 16px;
+    }
+
+    #quality-wrap.show { display: block; }
+
+    #quality-wrap label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    #quality-select {
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      padding: 10px 14px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #quality-select:focus { border-color: var(--accent-b); }
+
+    /* ===================== DOWNLOAD BUTTON ===================== */
+    #download-btn {
+      display: none;
+      width: calc(100% - 32px);
+      margin: 0 16px 16px;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #download-btn.show { display: block; animation: fadeUp 0.3s ease; }
+
+    #download-btn.video-mode {
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: #fff;
+    }
+
+    #download-btn.video-mode:hover {
+      box-shadow: 0 8px 32px rgba(59,130,246,0.4);
+      transform: translateY(-2px);
+    }
+
+    #download-btn.audio-mode {
+      background: linear-gradient(135deg, #00e5a0, #00c4a0);
+      color: #000;
+    }
+
+    #download-btn.audio-mode:hover {
+      box-shadow: 0 8px 32px var(--glow-g);
+      transform: translateY(-2px);
+    }
+
+    #download-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ===================== PROGRESS ===================== */
+    #progress-wrap {
+      display: none;
+      padding: 0 16px 20px;
+    }
+
+    #progress-wrap.show { display: block; }
+
+    .progress-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .progress-bar-bg {
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      background: linear-gradient(90deg, var(--accent-g), var(--accent-b));
+      width: 0%;
+      transition: width 0.4s ease;
+      animation: shimmer 1.5s infinite;
+      background-size: 200% 100%;
+    }
+
+    /* ===================== FEATURES SECTION ===================== */
+    .features {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      gap: 16px;
+      max-width: 720px;
+      width: 100%;
+      margin-top: 32px;
+      animation: fadeUp 0.7s 0.5s ease both;
+    }
+
+    .feature-item {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      backdrop-filter: blur(12px);
+    }
+
+    .feature-item .fi-icon { font-size: 1.8rem; margin-bottom: 10px; }
+    .feature-item h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 6px; }
+    .feature-item p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+    /* ===================== FOOTER ===================== */
+    footer {
+      position: relative;
+      z-index: 1;
+      margin-top: 48px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 2;
+    }
+
+    /* ===================== LOADING SPINNER ===================== */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    /* ===================== ANIMATIONS ===================== */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent-g); }
+      50%       { opacity: 0.6; box-shadow: 0 0 4px var(--accent-g); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25%       { transform: translateX(-8px); }
+      75%       { transform: translateX(8px); }
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% center; }
+      100% { background-position: -200% center; }
+    }
+
+    /* ===================== RESPONSIVE ===================== */
+    @media (max-width: 560px) {
+      .card { padding: 24px 18px; }
+      .features { flex-direction: column; }
+      .input-wrap { flex-direction: column; padding: 12px; }
+      #fetch-btn { width: 100%; }
+      .video-meta { flex-direction: column; }
+      #thumb { width: 100%; height: 160px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header>
+    <div class="logo-badge">v1.0 · Ücretsiz &amp; Reklamsız</div>
+    <h1><span class="yt">YT</span><span class="grab">Grab</span></h1>
+    <p class="tagline">YouTube videolarını MP4 &amp; MP3 olarak anında indir</p>
+  </header>
+
+  <!-- ===== MAIN CARD ===== -->
+  <div class="card">
+
+    <!-- URL Girişi -->
+    <div class="input-wrap">
+      <input
+        id="url-input"
+        type="text"
+        placeholder="https://www.youtube.com/watch?v=..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="fetch-btn" onclick="fetchInfo()">Analiz Et →</button>
+    </div>
+
+    <!-- Hata Mesajı -->
+    <div class="error-msg" id="error-msg"></div>
+
+    <!-- Video Kartı -->
+    <div id="video-card">
+      <div class="video-meta">
+        <img id="thumb" src="" alt="Küçük resim" />
+        <div class="video-info">
+          <div id="video-title">—</div>
+          <div class="video-stats">
+            <span id="stat-uploader">—</span>
+            <span id="stat-duration">—</span>
+            <span id="stat-views">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Format Seçimi -->
+      <div class="format-row">
+        <button class="fmt-btn video" id="btn-video" onclick="selectFormat('video')">
+          <span class="icon">🎬</span>
+          <span class="label">MP4</span>
+          <span class="sub">Video + Ses</span>
+        </button>
+        <button class="fmt-btn audio" id="btn-audio" onclick="selectFormat('audio')">
+          <span class="icon">🎵</span>
+          <span class="label">MP3</span>
+          <span class="sub">Yalnızca Ses</span>
+        </button>
+      </div>
+
+      <!-- Kalite Seçimi -->
+      <div id="quality-wrap">
+        <label>Çözünürlük seç</label>
+        <select id="quality-select"></select>
+      </div>
+
+      <!-- İndir Butonu -->
+      <button id="download-btn" onclick="startDownload()">
+        ↓ İndir
+      </button>
+
+      <!-- İndirme Durumu -->
+      <div id="progress-wrap">
+        <div class="progress-label">
+          <span id="progress-label-txt">Hazırlanıyor...</span>
+          <span id="progress-pct"></span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== ÖZELLİKLER ===== -->
+  <div class="features">
+    <div class="feature-item">
+      <div class="fi-icon">⚡</div>
+      <h3>Hızlı İndirme</h3>
+      <p>Sunucu tabanlı işlem ile kesintisiz ve hızlı indirme deneyimi</p>
+    </div>
+    <div class="feature-item">
+      <div class="fi-icon">🎛️</div>
+      <h3>Kalite Seçimi</h3>
+      <p>360p'den 1080p'ye istediğin çözünürlüğü seç</p>
+    </div>
+    <div class="feature-item">
+      <div class="fi-icon">🎵</div>
+      <h3>MP3 Dönüşümü</h3>
+      <p>192kbps kalitede doğrudan MP3 olarak kaydet</p>
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    Yalnızca kişisel kullanım içindir · YTGrab © 2025<br/>
+    Powered by yt-dlp + ffmpeg · Deployed on Railway
+  </footer>
+
+  <!-- ===== JAVASCRIPT ===== -->
+  <script>
+    let currentVideoUrl = '';
+    let selectedFormat = 'video'; // 'video' | 'audio'
+    let qualities = [];
+
+    // ---- URL Girişi Enter Tuşu ----
+    document.getElementById('url-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') fetchInfo();
+    });
+
+    // ---- Video Bilgisi Çek ----
+    async function fetchInfo() {
+      const url = document.getElementById('url-input').value.trim();
+      if (!url) return showError('Lütfen bir YouTube bağlantısı yapıştır.');
+
+      hideError();
+      hideVideoCard();
+
+      const btn = document.getElementById('fetch-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Analiz ediliyor...';
+
+      try {
+        const res = await fetch('/api/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showError(data.error || 'Video bilgisi alınamadı.');
+          return;
+        }
+
+        currentVideoUrl = url;
+        qualities = data.qualities || [];
+        renderVideoCard(data);
+      } catch (err) {
+        showError('Sunucuya ulaşılamadı. Lütfen daha sonra tekrar dene.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Analiz Et →';
+      }
+    }
+
+    // ---- Video Kartını Doldur ----
+    function renderVideoCard(data) {
+      document.getElementById('thumb').src = data.thumbnail || '';
+      document.getElementById('video-title').textContent = data.title || '—';
+      document.getElementById('stat-uploader').textContent = data.uploader || '—';
+      document.getElementById('stat-duration').textContent = data.duration || '—';
+      document.getElementById('stat-views').textContent = (data.view_count || '0') + ' izlenme';
+
+      // Kalite seçeneklerini doldur
+      const sel = document.getElementById('quality-select');
+      sel.innerHTML = '';
+      qualities.forEach(q => {
+        const opt = document.createElement('option');
+        opt.value = q.value;
+        opt.textContent = q.label;
+        sel.appendChild(opt);
+      });
+
+      // Varsayılan format seçimi sıfırla
+      selectFormat('video');
+
+      const card = document.getElementById('video-card');
+      card.classList.add('show');
+    }
+
+    // ---- Format Seçimi ----
+    function selectFormat(fmt) {
+      selectedFormat = fmt;
+
+      document.getElementById('btn-video').classList.toggle('active', fmt === 'video');
+      document.getElementById('btn-audio').classList.toggle('active', fmt === 'audio');
+
+      const qWrap = document.getElementById('quality-wrap');
+      qWrap.classList.toggle('show', fmt === 'video');
+
+      const dlBtn = document.getElementById('download-btn');
+      dlBtn.className = 'show ' + (fmt === 'video' ? 'video-mode' : 'audio-mode');
+      dlBtn.textContent = fmt === 'video' ? '↓ MP4 İndir' : '↓ MP3 İndir';
+    }
+
+    // ---- İndirme Başlat ----
+    async function startDownload() {
+      if (!currentVideoUrl) return;
+
+      const quality = document.getElementById('quality-select').value || 'best';
+      const fmt = selectedFormat === 'audio' ? 'mp3' : 'mp4';
+
+      // Progress göster
+      const progressWrap = document.getElementById('progress-wrap');
+      progressWrap.classList.add('show');
+      setProgress(0, 'Sunucuda hazırlanıyor...');
+
+      const dlBtn = document.getElementById('download-btn');
+      dlBtn.disabled = true;
+
+      // Loading animasyonu (gerçek progress endpoint olmadığından simüle ediyoruz)
+      let fakeProgress = 0;
+      const interval = setInterval(() => {
+        fakeProgress = Math.min(fakeProgress + Math.random() * 8, 90);
+        setProgress(fakeProgress, 'İndiriliyor...');
+      }, 600);
+
+      try {
+        const params = new URLSearchParams({ url: currentVideoUrl, format: fmt, quality });
+        const res = await fetch(`/api/download?${params}`);
+
+        clearInterval(interval);
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Bilinmeyen hata' }));
+          showError(err.error || 'İndirme başarısız.');
+          setProgress(0, '');
+          progressWrap.classList.remove('show');
+          return;
+        }
+
+        setProgress(100, 'Tamamlandı!');
+
+        // Dosyayı tarayıcıya indir
+        const blob = await res.blob();
+        const contentDisposition = res.headers.get('Content-Disposition') || '';
+        const nameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        const fileName = nameMatch ? nameMatch[1] : `ytgrab.${fmt}`;
+
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(a.href);
+
+        setTimeout(() => {
+          progressWrap.classList.remove('show');
+        }, 2000);
+
+      } catch (err) {
+        clearInterval(interval);
+        showError('İndirme sırasında bir hata oluştu.');
+        progressWrap.classList.remove('show');
+      } finally {
+        dlBtn.disabled = false;
+      }
+    }
+
+    // ---- Yardımcı Fonksiyonlar ----
+    function setProgress(pct, label) {
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-label-txt').textContent = label;
+      document.getElementById('progress-pct').textContent = pct < 100 ? Math.round(pct) + '%' : '✓';
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = '⚠ ' + msg;
+      el.classList.add('show');
+    }
+
+    function hideError() {
+      document.getElementById('error-msg').classList.remove('show');
+    }
+
+    function hideVideoCard() {
+      document.getElementById('video-card').classList.remove('show');
+      document.getElementById('progress-wrap').classList.remove('show');
+    }
+  </script>
+</body>
+</html>
